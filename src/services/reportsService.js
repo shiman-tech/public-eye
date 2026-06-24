@@ -42,22 +42,36 @@ export async function submitReport({ title, description, category, priority, lat
     const compressed = imageFile ? await compressImage(imageFile) : null
     const image_url = await uploadImage(compressed)
 
-    const { data, error } = await supabase
+    const basePayload = {
+        title: title || `${category} Issue`,
+        description,
+        category,
+        lat,
+        lng,
+        address,
+        image_url,
+        reported_by: reportedBy || 'Anonymous',
+        status: 'Open',
+    }
+
+    // Try with priority column first
+    let { data, error } = await supabase
         .from('reports')
-        .insert([{
-            title: title || `${category} Issue`,
-            description,
-            category,
-            priority: priority || 'Medium',
-            lat,
-            lng,
-            address,
-            image_url,
-            reported_by: reportedBy || 'Anonymous',
-            status: 'Open',
-        }])
+        .insert([{ ...basePayload, priority: priority || 'Medium' }])
         .select()
         .single()
+
+    // Fall back without priority if column doesn't exist yet
+    if (error && error.message && error.message.includes('schema cache')) {
+        console.warn('Priority column not found — falling back. Run migration_robustness.sql to enable full features.')
+        const fallback = await supabase
+            .from('reports')
+            .insert([basePayload])
+            .select()
+            .single()
+        data = fallback.data
+        error = fallback.error
+    }
 
     if (error) throw error
     return data
@@ -74,37 +88,50 @@ export async function submitReport({ title, description, category, priority, lat
  * @param {string} options.previousStatus - The status before the change
  */
 export async function updateReportStatus(id, newStatus, { adminEmail = 'admin', adminNote = '', previousStatus = '' } = {}) {
-    // Build the update payload
-    const updatePayload = { status: newStatus }
+    // Build the full update payload with new columns
+    const fullPayload = { status: newStatus }
 
     // If resolving, record who and when
     if (newStatus === 'Resolved') {
-        updatePayload.resolved_by = adminEmail
-        updatePayload.resolved_at = new Date().toISOString()
+        fullPayload.resolved_by = adminEmail
+        fullPayload.resolved_at = new Date().toISOString()
     }
 
     // If moving back from Resolved, clear resolution fields
     if (previousStatus === 'Resolved' && newStatus !== 'Resolved') {
-        updatePayload.resolved_by = null
-        updatePayload.resolved_at = null
+        fullPayload.resolved_by = null
+        fullPayload.resolved_at = null
     }
 
     // Append admin note if provided
     if (adminNote) {
-        updatePayload.admin_notes = adminNote
+        fullPayload.admin_notes = adminNote
     }
 
-    // Update the report
-    const { data, error } = await supabase
+    // Try update with all new columns first
+    let { data, error } = await supabase
         .from('reports')
-        .update(updatePayload)
+        .update(fullPayload)
         .eq('id', id)
         .select()
         .single()
 
+    // If the new columns don't exist yet (migration not run), fall back to status-only update
+    if (error && error.message && error.message.includes('schema cache')) {
+        console.warn('New columns not found — falling back to status-only update. Run migration_robustness.sql in Supabase SQL Editor to enable full features.')
+        const fallback = await supabase
+            .from('reports')
+            .update({ status: newStatus })
+            .eq('id', id)
+            .select()
+            .single()
+        data = fallback.data
+        error = fallback.error
+    }
+
     if (error) throw error
 
-    // Insert audit trail entry
+    // Insert audit trail entry (will silently fail if status_history table doesn't exist yet)
     try {
         await supabase.from('status_history').insert([{
             report_id: id,
