@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ReportMarker from './ReportMarker'
 import { fetchReports, subscribeToReports } from '../services/reportsService'
-import { MapPin, Loader2, AlertCircle } from 'lucide-react'
+import { MapPin, Loader2, AlertCircle, Crosshair, Layers, Navigation } from 'lucide-react'
 
-// Fix Leaflet default icon paths in Vite
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -14,75 +13,214 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-const DEFAULT_CENTER = [20.5937, 78.9629] // India center fallback
-const DEFAULT_ZOOM = 13
+const DEFAULT_CENTER = [20.5937, 78.9629]
+const DEFAULT_ZOOM = 16
+const REPORT_ZOOM = 18
+const MAX_ZOOM = 20
+
+const MAP_LAYERS = {
+    streets: {
+        label: 'Streets',
+        description: 'Roads, buildings & parks',
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: MAX_ZOOM,
+    },
+    detailed: {
+        label: 'Detailed',
+        description: 'Color-coded geography',
+        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: MAX_ZOOM,
+    },
+    satellite: {
+        label: 'Satellite',
+        description: 'Aerial imagery',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
+        maxZoom: 19,
+    },
+    hybrid: {
+        label: 'Hybrid',
+        description: 'Satellite + labels',
+        base: {
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
+            maxZoom: 19,
+        },
+        overlay: {
+            url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+            maxZoom: MAX_ZOOM,
+        },
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    },
+}
 
 function createDraftIcon() {
     return L.divIcon({
         html: `
-      <div style="position:relative; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+      <div style="position:relative;width:48px;height:56px;display:flex;align-items:flex-end;justify-content:center;">
         <div style="
-          position:absolute; width:40px; height:40px;
-          border-radius:50%; background:rgba(59,130,246,0.3);
-          animation: pulseRing 1.5s ease-out infinite;
+          position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+          width:44px;height:44px;border-radius:50%;
+          background:rgba(239,68,68,0.25);
+          animation:pulseRing 1.5s ease-out infinite;
         "></div>
-        <div style="
-          width:16px; height:16px; border-radius:50%;
-          background:#3b82f6; border:3px solid white;
-          box-shadow:0 2px 8px rgba(59,130,246,0.6);
-          position:relative; z-index:1;
-        "></div>
+        <svg width="36" height="48" viewBox="0 0 36 48" style="position:relative;z-index:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));">
+          <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="#ef4444" stroke="#fff" stroke-width="2"/>
+          <circle cx="18" cy="17" r="7" fill="#fff"/>
+          <circle cx="18" cy="17" r="4" fill="#ef4444"/>
+        </svg>
       </div>
     `,
         className: '',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [48, 56],
+        iconAnchor: [24, 56],
     })
 }
 
-// Inner component to handle map events
-function MapClickHandler({ onMapClick }) {
+function MapClickHandler({ onMapClick, draftPosition }) {
     useMapEvents({
         click(e) {
-            onMapClick(e.latlng.lat, e.latlng.lng)
+            if (!draftPosition) {
+                onMapClick(e.latlng.lat, e.latlng.lng)
+            }
         },
     })
     return null
 }
 
-// Draft pin marker
-function DraftPin({ position }) {
-    const markerRef = useRef(null)
-
+function MapFlyTo({ position, zoom }) {
+    const map = useMap()
     useEffect(() => {
-        if (markerRef.current) {
-            markerRef.current.openPopup()
+        if (position) {
+            map.flyTo(position, Math.max(map.getZoom(), zoom), { duration: 0.6 })
         }
-    }, [])
-
-    return position ? (
-        <ReportMarker
-            report={{
-                id: 'draft',
-                lat: position[0],
-                lng: position[1],
-                title: 'New Report',
-                category: 'Other',
-                status: 'draft',
-            }}
-        />
-    ) : null
+    }, [position, zoom, map])
+    return null
 }
 
-export default function MapView({ draftPosition, onMapClick, reports: externalReports, onReportsChange }) {
+function LayerSwitcher({ activeLayer, onLayerChange }) {
+    const [open, setOpen] = useState(false)
+
+    return (
+        <div className="absolute top-4 right-4 z-[450]">
+            <button
+                onClick={() => setOpen(!open)}
+                className="glass-dark border border-white/15 text-white p-2.5 rounded-xl shadow-lg hover:bg-white/10 transition-all flex items-center gap-2"
+                title="Switch map layer"
+            >
+                <Layers className="w-4 h-4" />
+                <span className="text-xs font-medium hidden sm:inline">{MAP_LAYERS[activeLayer].label}</span>
+            </button>
+
+            {open && (
+                <div className="absolute top-full right-0 mt-2 w-48 glass-dark border border-white/15 rounded-xl shadow-xl overflow-hidden">
+                    {Object.entries(MAP_LAYERS).map(([key, layer]) => (
+                        <button
+                            key={key}
+                            onClick={() => { onLayerChange(key); setOpen(false) }}
+                            className={`w-full text-left px-4 py-3 transition-all border-b border-white/5 last:border-0 ${
+                                activeLayer === key
+                                    ? 'bg-blue-500/20 text-blue-300'
+                                    : 'text-slate-300 hover:bg-white/5'
+                            }`}
+                        >
+                            <div className="text-sm font-medium">{layer.label}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{layer.description}</div>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+function MapLegend() {
+    return (
+        <div className="absolute bottom-24 left-4 z-[450] glass-dark border border-white/10 rounded-xl p-3 text-xs space-y-1.5 hidden md:block">
+            <div className="text-slate-400 font-medium mb-2">Map Legend</div>
+            <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#f2efe9] border border-gray-300"></span><span className="text-slate-400">Buildings & roads</span></div>
+            <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#aad3df]"></span><span className="text-slate-400">Water</span></div>
+            <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#c8facc]"></span><span className="text-slate-400">Parks & green</span></div>
+            <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#fde]"></span><span className="text-slate-400">Commercial areas</span></div>
+        </div>
+    )
+}
+
+function DraggableDraftPin({ position, onDragEnd }) {
+    const markerRef = useRef(null)
+    const draftIcon = createDraftIcon()
+
+    return (
+        <Marker
+            ref={markerRef}
+            position={position}
+            icon={draftIcon}
+            draggable
+            eventHandlers={{
+                dragend() {
+                    const marker = markerRef.current
+                    if (marker) {
+                        const { lat, lng } = marker.getLatLng()
+                        onDragEnd(lat, lng)
+                    }
+                },
+            }}
+        />
+    )
+}
+
+function LocateButton({ onLocate }) {
+    return (
+        <button
+            onClick={onLocate}
+            className="absolute top-4 left-4 z-[450] glass-dark border border-white/15 text-white p-2.5 rounded-xl shadow-lg hover:bg-white/10 transition-all"
+            title="Go to my location"
+        >
+            <Navigation className="w-4 h-4" />
+        </button>
+    )
+}
+
+function MapTileLayers({ layerKey }) {
+    const layer = MAP_LAYERS[layerKey]
+
+    if (layerKey === 'hybrid') {
+        return (
+            <>
+                <TileLayer
+                    url={layer.base.url}
+                    attribution={layer.attribution}
+                    maxZoom={layer.base.maxZoom}
+                />
+                <TileLayer
+                    url={layer.overlay.url}
+                    maxZoom={layer.overlay.maxZoom}
+                    opacity={0.85}
+                />
+            </>
+        )
+    }
+
+    return (
+        <TileLayer
+            url={layer.url}
+            attribution={layer.attribution}
+            maxZoom={layer.maxZoom}
+        />
+    )
+}
+
+export default function MapView({ draftPosition, onMapClick, onDraftPositionChange, onReportsChange }) {
     const [reports, setReports] = useState([])
     const [userLocation, setUserLocation] = useState(null)
     const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [activeLayer, setActiveLayer] = useState('detailed')
     const mapRef = useRef(null)
 
-    // Get user geolocation on mount
     useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -91,22 +229,19 @@ export default function MapView({ draftPosition, onMapClick, reports: externalRe
                     setUserLocation([latitude, longitude])
                     setMapCenter([latitude, longitude])
                 },
-                () => {
-                    // Silently fall back to default
-                },
-                { timeout: 8000 }
+                () => {},
+                { timeout: 8000, enableHighAccuracy: true }
             )
         }
     }, [])
 
-    // Load initial reports
     useEffect(() => {
         async function loadReports() {
             try {
                 setLoading(true)
                 const data = await fetchReports()
                 setReports(data || [])
-                onReportsChange && onReportsChange(data || [])
+                onReportsChange?.(data || [])
             } catch (err) {
                 console.error('Failed to load reports:', err)
                 setError('Could not load reports. Check your Supabase config.')
@@ -117,20 +252,19 @@ export default function MapView({ draftPosition, onMapClick, reports: externalRe
         loadReports()
     }, [])
 
-    // Real-time subscription
     useEffect(() => {
         const unsub = subscribeToReports(
             (newReport) => {
                 setReports((prev) => {
                     const updated = [newReport, ...prev.filter((r) => r.id !== newReport.id)]
-                    onReportsChange && onReportsChange(updated)
+                    onReportsChange?.(updated)
                     return updated
                 })
             },
             (updatedReport) => {
                 setReports((prev) => {
                     const updated = prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))
-                    onReportsChange && onReportsChange(updated)
+                    onReportsChange?.(updated)
                     return updated
                 })
             }
@@ -138,40 +272,54 @@ export default function MapView({ draftPosition, onMapClick, reports: externalRe
         return unsub
     }, [])
 
-    // Fly to draft position when set
-    useEffect(() => {
-        if (draftPosition && mapRef.current) {
-            mapRef.current.flyTo(draftPosition, Math.max(mapRef.current.getZoom(), 15), {
-                duration: 0.8,
-            })
-        }
-    }, [draftPosition])
-
     const handleMapClick = useCallback((lat, lng) => {
-        onMapClick && onMapClick(lat, lng)
+        onMapClick?.(lat, lng)
     }, [onMapClick])
 
-    // User location marker
+    const handleDraftDrag = useCallback((lat, lng) => {
+        onDraftPositionChange?.(lat, lng)
+    }, [onDraftPositionChange])
+
+    const handleLocate = useCallback(() => {
+        if (userLocation && mapRef.current) {
+            mapRef.current.flyTo(userLocation, REPORT_ZOOM, { duration: 0.8 })
+        } else if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const loc = [pos.coords.latitude, pos.coords.longitude]
+                    setUserLocation(loc)
+                    mapRef.current?.flyTo(loc, REPORT_ZOOM, { duration: 0.8 })
+                },
+                () => setError('Could not access your location.'),
+                { enableHighAccuracy: true }
+            )
+        }
+    }, [userLocation])
+
     const userLocationIcon = L.divIcon({
         html: `
-      <div style="position:relative; width:20px; height:20px;">
+      <div style="position:relative;width:24px;height:24px;">
         <div style="
-          width:20px; height:20px; border-radius:50%;
-          background:#3b82f6; border:3px solid white;
+          position:absolute;inset:0;border-radius:50%;
+          background:rgba(59,130,246,0.3);animation:pulseRing 1.5s ease-out infinite;
+        "></div>
+        <div style="
+          width:14px;height:14px;border-radius:50%;
+          background:#3b82f6;border:3px solid white;
           box-shadow:0 2px 8px rgba(59,130,246,0.7);
+          position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
         "></div>
       </div>
     `,
         className: '',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
     })
 
     return (
         <div className="relative w-full h-full">
-            {/* Loading overlay */}
             {loading && (
-                <div className="absolute inset-0 z-[400] flex items-center justify-center" style={{ background: 'rgba(11,18,32,0.7)', backdropFilter: 'blur(4px)' }}>
+                <div className="absolute inset-0 z-[400] flex items-center justify-center map-loading-overlay">
                     <div className="flex flex-col items-center gap-3">
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                         <span className="text-slate-300 text-sm">Loading CivicPulse Map…</span>
@@ -179,84 +327,66 @@ export default function MapView({ draftPosition, onMapClick, reports: externalRe
                 </div>
             )}
 
-            {/* Error banner */}
             {error && !loading && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-2 glass-dark border border-red-500/30 text-red-400 text-sm px-4 py-2 rounded-xl">
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-2 glass-dark border border-red-500/30 text-red-400 text-sm px-4 py-2 rounded-xl">
                     <AlertCircle className="w-4 h-4" />
                     {error}
                 </div>
             )}
 
-            {/* Click hint */}
             {!loading && !draftPosition && (
                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[400] pointer-events-none">
-                    <div className="glass-dark border border-white/10 text-slate-400 text-xs px-4 py-2 rounded-full flex items-center gap-2 animate-bounce">
+                    <div className="glass-dark border border-white/10 text-slate-400 text-xs px-4 py-2 rounded-full flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                        Click anywhere on the map to report an issue
+                        Tap the exact spot on the map to report an issue
                     </div>
                 </div>
             )}
 
+            {draftPosition && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[400] pointer-events-none">
+                    <div className="glass-dark border border-red-500/30 text-red-300 text-xs px-4 py-2 rounded-full flex items-center gap-2">
+                        <Crosshair className="w-3.5 h-3.5" />
+                        Drag the red pin to pinpoint the exact location
+                    </div>
+                </div>
+            )}
+
+            <LocateButton onLocate={handleLocate} />
+            <LayerSwitcher activeLayer={activeLayer} onLayerChange={setActiveLayer} />
+            <MapLegend />
+
             <MapContainer
                 center={mapCenter}
                 zoom={DEFAULT_ZOOM}
-                className="w-full h-full"
+                maxZoom={MAX_ZOOM}
+                className="w-full h-full map-container-realistic"
                 ref={mapRef}
                 zoomControl={true}
-                style={{ cursor: 'crosshair' }}
+                style={{ cursor: draftPosition ? 'grab' : 'crosshair' }}
             >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    maxZoom={19}
-                />
+                <MapTileLayers layerKey={activeLayer} />
 
-                <MapClickHandler onMapClick={handleMapClick} />
+                <MapClickHandler onMapClick={handleMapClick} draftPosition={draftPosition} />
+                {draftPosition && (
+                    <MapFlyTo position={draftPosition} zoom={REPORT_ZOOM} />
+                )}
 
-                {/* User location */}
                 {userLocation && (
-                    <ReportMarker
-                        report={{
-                            id: 'user-loc',
-                            lat: userLocation[0],
-                            lng: userLocation[1],
-                            title: 'Your Location',
-                            category: 'Other',
-                            status: 'Open',
-                            description: 'This is your current location.',
-                        }}
+                    <Marker position={userLocation} icon={userLocationIcon} />
+                )}
+
+                {draftPosition && (
+                    <DraggableDraftPin
+                        position={draftPosition}
+                        onDragEnd={handleDraftDrag}
                     />
                 )}
 
-                {/* Draft pin */}
-                {draftPosition && (
-                    <DraftPinMarker position={draftPosition} />
-                )}
-
-                {/* Report markers */}
                 {reports.map((report) => (
                     <ReportMarker key={report.id} report={report} />
                 ))}
             </MapContainer>
         </div>
-    )
-}
-
-// Separate draft pin with pulsing icon
-function DraftPinMarker({ position }) {
-    const draftIcon = createDraftIcon()
-
-    return (
-        <ReportMarker
-            report={{
-                id: 'draft',
-                lat: position[0],
-                lng: position[1],
-                title: '📍 New Report Here',
-                category: 'Other',
-                status: 'Open',
-                description: 'Fill in the form to submit this report.',
-            }}
-        />
     )
 }

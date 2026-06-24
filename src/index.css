@@ -61,8 +61,34 @@ html, body, #root {
 .leaflet-container {
   height: 100%;
   width: 100%;
-  background: #0b1220;
+  background: #e8e4dc;
   font-family: 'Inter', sans-serif;
+}
+
+.map-container-realistic {
+  filter: none;
+}
+
+.map-loading-overlay {
+  background: rgba(11, 18, 32, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-control-zoom a {
+  background: rgba(11, 18, 32, 0.9) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: #475569 !important;
+  font-size: 10px !important;
+  border-radius: 4px 0 0 0;
 }
 
 .leaflet-popup-content-wrapper {

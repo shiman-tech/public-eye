@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Navbar from './components/Navbar'
+import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import StatusBoard from './pages/StatusBoard'
@@ -13,6 +14,7 @@ export default function App() {
       <div className="flex flex-col h-screen overflow-hidden bg-civic-dark">
         <Navbar />
         <main className="flex-1 overflow-hidden">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/status" element={
@@ -34,6 +36,7 @@ export default function App() {
               }
             />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
       <Toaster position="top-center" />

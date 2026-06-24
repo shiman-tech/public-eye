@@ -3,6 +3,8 @@ import { X, Upload, MapPin, Loader2, Sparkles, CheckCircle, AlertCircle, Chevron
 import { submitReport } from '../services/reportsService'
 import { reverseGeocode } from '../services/geocodingService'
 import { classifyImage } from '../services/aiClassifier'
+import { validateImageFile } from '../utils/imageUtils'
+import { checkRateLimit, formatRetryMessage } from '../utils/rateLimiter'
 import toast from 'react-hot-toast'
 
 const CATEGORIES = ['Pothole', 'Sanitation', 'Streetlight', 'Flooding', 'Vandalism', 'Other']
@@ -62,26 +64,31 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
         const file = e.target.files[0]
         if (!file) return
 
-        if (file.size > 10 * 1024 * 1024) {
-            toast.error('Image must be under 10MB')
+        const validation = validateImageFile(file)
+        if (!validation.valid) {
+            toast.error(validation.error)
+            return
+        }
+
+        const rateCheck = checkRateLimit('ai_classify', { maxAttempts: 10, windowMs: 60_000 })
+        if (!rateCheck.allowed) {
+            toast.error(formatRetryMessage(rateCheck.retryAfterSec))
             return
         }
 
         setImageFile(file)
         setImagePreview(URL.createObjectURL(file))
 
-        // AI Classification
         setClassifying(true)
         setAiSuggestion(null)
         try {
             const result = await classifyImage(file)
             setAiSuggestion(result)
-            // Auto-fill category if none selected
             if (!form.category && result) {
                 setForm((prev) => ({ ...prev, category: result.category }))
             }
         } catch {
-            // silent fail
+            toast.error('AI analysis unavailable — please select a category manually')
         } finally {
             setClassifying(false)
         }
@@ -107,6 +114,12 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
     async function handleSubmit(e) {
         e.preventDefault()
         if (!validate() || !draftPosition) return
+
+        const rateCheck = checkRateLimit('submit_report', { maxAttempts: 3, windowMs: 300_000 })
+        if (!rateCheck.allowed) {
+            toast.error(formatRetryMessage(rateCheck.retryAfterSec))
+            return
+        }
 
         setSubmitting(true)
         try {
@@ -211,7 +224,8 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
                                             <div className="glass text-xs px-3 py-1.5 rounded-lg flex items-center gap-2">
                                                 <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
                                                 <span className="text-slate-300">
-                                                    AI suggests: <span className="text-purple-300 font-medium">{aiSuggestion.category}</span>
+                                                    {aiSuggestion.isAI ? 'AI suggests' : 'Suggested'}:{' '}
+                                                    <span className="text-purple-300 font-medium">{aiSuggestion.category}</span>
                                                     <span className="text-slate-500 ml-1">({aiSuggestion.confidence}% confidence)</span>
                                                 </span>
                                             </div>
@@ -325,11 +339,14 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
                     </div>
 
                     {/* Coordinates display */}
-                    <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
-                        <span className="text-xs text-slate-500">Coordinates</span>
-                        <span className="text-xs text-slate-300 font-mono">
-                            {draftPosition ? `${draftPosition[0].toFixed(5)}, ${draftPosition[1].toFixed(5)}` : '—'}
-                        </span>
+                    <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500">Coordinates</span>
+                            <span className="text-xs text-slate-300 font-mono">
+                                {draftPosition ? `${draftPosition[0].toFixed(6)}, ${draftPosition[1].toFixed(6)}` : '—'}
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-slate-600">Drag the red pin on the map for precise placement</p>
                     </div>
                 </form>
 

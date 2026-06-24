@@ -12,6 +12,10 @@ export default function HomePage() {
         setSidebarOpen(true)
     }, [])
 
+    const handleDraftPositionChange = useCallback((lat, lng) => {
+        setDraftPosition([lat, lng])
+    }, [])
+
     const handleSidebarClose = useCallback(() => {
         setSidebarOpen(false)
         setDraftPosition(null)
@@ -28,6 +32,7 @@ export default function HomePage() {
                 <MapView
                     draftPosition={draftPosition}
                     onMapClick={handleMapClick}
+                    onDraftPositionChange={handleDraftPositionChange}
                     onReportsChange={setReports}
                 />
             </div>

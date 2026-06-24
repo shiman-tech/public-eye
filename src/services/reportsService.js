@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { compressImage } from '../utils/imageUtils'
 
 const BUCKET = 'report-images'
 
@@ -38,7 +39,8 @@ async function uploadImage(imageFile) {
  * Submit a new report (with optional image upload)
  */
 export async function submitReport({ title, description, category, lat, lng, address, reportedBy }, imageFile) {
-    const image_url = await uploadImage(imageFile)
+    const compressed = imageFile ? await compressImage(imageFile) : null
+    const image_url = await uploadImage(compressed)
 
     const { data, error } = await supabase
         .from('reports')
