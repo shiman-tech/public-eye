@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Upload, MapPin, Loader2, Sparkles, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react'
+import { X, Upload, MapPin, Loader2, Sparkles, CheckCircle, AlertCircle, ChevronDown, AlertTriangle, ArrowUp, Minus } from 'lucide-react'
 import { submitReport } from '../services/reportsService'
 import { reverseGeocode } from '../services/geocodingService'
 import { classifyImage } from '../services/aiClassifier'
@@ -8,6 +8,13 @@ import { checkRateLimit, formatRetryMessage } from '../utils/rateLimiter'
 import toast from 'react-hot-toast'
 
 const CATEGORIES = ['Pothole', 'Sanitation', 'Streetlight', 'Flooding', 'Vandalism', 'Other']
+
+const PRIORITIES = [
+    { value: 'Low', label: 'Low', icon: Minus, color: 'text-slate-400 border-slate-500/30 bg-slate-500/10' },
+    { value: 'Medium', label: 'Medium', icon: Minus, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
+    { value: 'High', label: 'High', icon: ArrowUp, color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+    { value: 'Critical', label: 'Critical', icon: AlertTriangle, color: 'text-rose-400 border-rose-500/30 bg-rose-500/10' },
+]
 
 const CATEGORY_EMOJI = {
     Pothole: '🕳️', Sanitation: '🗑️', Streetlight: '💡',
@@ -21,6 +28,7 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
         title: '',
         description: '',
         category: '',
+        priority: 'Medium',
         reportedBy: '',
     })
     const [imageFile, setImageFile] = useState(null)
@@ -46,7 +54,7 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
     // Reset when closed
     useEffect(() => {
         if (!isOpen) {
-            setForm({ title: '', description: '', category: '', reportedBy: '' })
+            setForm({ title: '', description: '', category: '', priority: 'Medium', reportedBy: '' })
             setImageFile(null)
             setImagePreview(null)
             setAiSuggestion(null)
@@ -128,6 +136,7 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
                     title: form.title || `${form.category} Issue`,
                     description: form.description,
                     category: form.category,
+                    priority: form.priority,
                     lat: draftPosition[0],
                     lng: draftPosition[1],
                     address,
@@ -286,6 +295,29 @@ export default function ReportSidebar({ isOpen, draftPosition, onClose, onSucces
                                 <AlertCircle className="w-3 h-3" /> {errors.category}
                             </p>
                         )}
+                    </div>
+
+                    {/* Priority */}
+                    <div>
+                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">
+                            Priority Level
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {PRIORITIES.map(({ value, label, icon: PIcon, color }) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setForm((p) => ({ ...p, priority: value }))}
+                                    className={`flex flex-col items-center gap-1 py-2 px-1.5 rounded-xl text-[10px] font-medium transition-all border ${form.priority === value
+                                            ? color
+                                            : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-white hover:bg-white/10'
+                                        }`}
+                                >
+                                    <PIcon className="w-3.5 h-3.5" />
+                                    <span>{label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Title */}

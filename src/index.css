@@ -193,6 +193,23 @@ html, body, #root {
 .kanban-col-progress { @apply border-t-2 border-amber-500; }
 .kanban-col-resolved { @apply border-t-2 border-emerald-500; }
 
+/* Priority badges */
+.priority-critical {
+  @apply bg-rose-500/20 text-rose-400 border border-rose-500/40;
+}
+
+.priority-high {
+  @apply bg-orange-500/20 text-orange-400 border border-orange-500/40;
+}
+
+.priority-medium {
+  @apply bg-blue-500/15 text-blue-400 border border-blue-500/30;
+}
+
+.priority-low {
+  @apply bg-slate-500/15 text-slate-400 border border-slate-500/30;
+}
+
 /* Sidebar slide animation */
 .sidebar-enter {
   animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -201,6 +218,46 @@ html, body, #root {
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
+}
+
+/* Modal animations */
+.modal-backdrop-enter {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content-enter {
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Fade-in animation */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Bounce-in animation (login page) */
+.animate-bounce-in {
+  animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* Transitions */
