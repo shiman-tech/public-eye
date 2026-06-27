@@ -147,7 +147,7 @@ docker compose -f docker-compose.prod.yml up --build -d   # production
 2. Sign in at http://localhost:5173/login
 3. Manage reports at `/admin`
 
-Admin JWT tokens are sent to FastAPI for protected status-update routes.
+Admin JWT tokens are sent to FastAPI for protected status-update routes. The backend dynamically instantiates a database client authenticated with the admin's JWT token (retrieved from the `Authorization` bearer header). This allows backend database operations to execute under the `authenticated` role, satisfying Row Level Security (RLS) policies defined in PostgreSQL (such as those requiring authenticated status for report updates and history entry creation).
 
 ---
 
