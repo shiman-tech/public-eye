@@ -1,7 +1,9 @@
 /**
- * AI Image Classifier — OpenAI GPT-4o Vision via secure server proxy.
+ * AI Image Classifier — OpenAI GPT-4o Vision via FastAPI backend.
  * Falls back to filename heuristics when the API is unavailable.
  */
+
+import { apiPostJson } from './apiClient'
 
 const CATEGORIES = ['Pothole', 'Sanitation', 'Streetlight', 'Flooding', 'Vandalism', 'Other']
 
@@ -13,7 +15,7 @@ const CATEGORY_KEYWORDS = {
     Vandalism: ['graffiti', 'vandal', 'damage', 'broken', 'spray'],
 }
 
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024 // 4MB for API payload
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024
 
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
@@ -75,11 +77,6 @@ function classifyByFilename(file) {
     }
 }
 
-/**
- * Analyze an image file and suggest a category.
- * @param {File} file - The uploaded image file
- * @returns {Promise<{ category: string, confidence: number, isAI: boolean, source?: string, model?: string } | null>}
- */
 export async function classifyImage(file) {
     if (!file) return null
 
@@ -88,17 +85,9 @@ export async function classifyImage(file) {
         const imageBase64 = await fileToBase64(compressed)
         const mimeType = compressed.type || 'image/jpeg'
 
-        const res = await fetch('/api/classify-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64, mimeType }),
-        })
-
-        if (res.ok) {
-            const result = await res.json()
-            if (result.category && CATEGORIES.includes(result.category)) {
-                return result
-            }
+        const result = await apiPostJson('/classify-image', { imageBase64, mimeType })
+        if (result.category && CATEGORIES.includes(result.category)) {
+            return result
         }
     } catch (err) {
         console.warn('OpenAI classification failed, using fallback:', err.message)

@@ -2,32 +2,49 @@
 
 **CivicPulse** is an open-source civic tech web application that empowers citizens to report local infrastructure issues and track their resolution in real-time — all on an interactive map.
 
-![Tech Stack](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white) ![Leaflet](https://img.shields.io/badge/Leaflet.js-OpenStreetMap-199900?logo=leaflet&logoColor=white) ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss&logoColor=white)
+Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL).
+
+![Tech Stack](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white) ![Leaflet](https://img.shields.io/badge/Leaflet.js-OpenStreetMap-199900?logo=leaflet&logoColor=white)
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐     REST /api/*      ┌─────────────────┐
+│  React (Vite)   │ ◄──────────────────► │  FastAPI        │
+│  frontend/      │                      │  backend/       │
+└────────┬────────┘                      └────────┬────────┘
+         │                                        │
+         │ Auth + Realtime                        │ Service role
+         ▼                                        ▼
+         └────────────────┬───────────────────────┘
+                          │
+                   ┌──────▼──────┐
+                   │  Supabase   │
+                   │  Postgres   │
+                   │  Auth       │
+                   │  Storage    │
+                   │  Realtime   │
+                   └─────────────┘
+```
+
+| Layer | Role |
+|-------|------|
+| **React** | UI, map, forms, admin Kanban |
+| **FastAPI** | Reports CRUD, image upload, AI classification, geocoding proxy |
+| **Supabase** | PostgreSQL + PostGIS database, admin auth, realtime subscriptions, image storage |
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🗺️ **Interactive Map** | Dark-themed CartoDB map that initializes at your geolocation |
-| 📍 **Click-to-Report** | Click anywhere on the map to drop a pin and open the report form |
-| 🤖 **AI Classification** | Uploaded image is analyzed and a category is auto-suggested |
-| 🏷️ **Color-coded Markers** | 🔴 Open · 🟡 In Progress · 🟢 Resolved — updated in real-time |
-| 📋 **Status Board** | Searchable, filterable list view of all reports |
-| 🔐 **Admin Dashboard** | Kanban board for admins to move reports through the workflow |
-| ⚡ **Real-time Updates** | Supabase Realtime keeps the map and dashboard in sync live |
-| 📱 **Mobile-first** | Fully responsive — designed for on-site reporting from phones |
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React 18 (Vite), Tailwind CSS v3
-- **Map:** Leaflet.js + react-leaflet, OpenStreetMap / CartoDB dark tiles
-- **Backend:** [Supabase](https://supabase.com) — PostgreSQL + PostGIS, Auth, Storage, Realtime
-- **Geocoding:** [Nominatim API](https://nominatim.org/) (reverse geocode map clicks to addresses)
-- **AI:** Pluggable image classifier stub (ready for OpenAI Vision / Google Vision)
+- 🗺️ Interactive map with click-to-report
+- 🤖 AI image classification (OpenAI Vision via FastAPI)
+- 📋 Public status board with audit trail
+- 🔐 Admin Kanban dashboard
+- ⚡ Real-time updates via Supabase Realtime
+- 📱 Mobile-first responsive design
 
 ---
 
@@ -36,148 +53,153 @@
 ### Prerequisites
 
 - Node.js 18+
+- [Docker](https://docs.docker.com/get-docker/) (runs the FastAPI backend — no local Python needed)
 - A [Supabase](https://supabase.com) project with PostGIS enabled
 
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/civicpulse.git
-cd civicpulse
-npm install
+git clone https://github.com/your-username/public-eye.git
+cd public-eye
+npm run install:all
 ```
+
+This installs frontend dependencies only. The backend runs in Docker with a pinned Python 3.12 image and locked dependency versions.
 
 ### 2. Environment Variables
 
+Copy the example files and fill in your credentials:
+
 ```bash
-cp .env.example .env
+cp frontend/.env.example frontend/.env
+cp backend/.env.example backend/.env
 ```
 
-Fill in your Supabase credentials in `.env`:
-
+**frontend/.env**
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
+**backend/.env**
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OPENAI_API_KEY=sk-...
+CORS_ORIGINS=http://localhost:5173
+```
+
+> Get the service role key from Supabase Dashboard → Settings → API. Keep it server-side only.
+
 ### 3. Set Up the Database
 
-In your [Supabase SQL Editor](https://supabase.com/dashboard), run the full contents of:
+In your [Supabase SQL Editor](https://supabase.com/dashboard), run:
 
 ```
 supabase/schema.sql
 ```
 
-This creates:
-- `reports` table with PostGIS geometry
-- Auto-update triggers for `updated_at` and the `location` column
-- Row Level Security policies
-- Storage RLS policies for `report-images`
-- 3 sample seed reports
+Create a public storage bucket named **`report-images`** in Supabase Dashboard → Storage.
 
-### 4. Create Storage Bucket
-
-In **Supabase Dashboard → Storage → New Bucket**:
-- Name: `report-images`
-- Toggle **Public bucket: ON**
-
-### 5. Run the App
+### 4. Run the App
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+This starts both servers concurrently (backend in Docker with hot reload):
+
+| Service | URL |
+|---------|-----|
+| React frontend | http://localhost:5173 |
+| FastAPI backend | http://localhost:8000 |
+| API docs | http://localhost:8000/docs |
+
+Run individually:
+
+```bash
+npm run dev:backend   # Docker: FastAPI on :8000 (hot reload)
+npm run dev:frontend  # Vite on :5173
+```
+
+### Docker commands
+
+```bash
+npm run dev:backend        # Dev: build + run with volume mount + reload
+npm run dev:backend:down     # Stop dev container
+npm run docker:build         # Rebuild backend image
+npm run docker:prod          # Production image (no reload, detached)
+npm run docker:prod:down     # Stop production container
+```
+
+Backend only (without npm):
+
+```bash
+docker compose up --build backend          # development
+docker compose -f docker-compose.prod.yml up --build -d   # production
+```
 
 ---
 
 ## 🔐 Admin Access
 
-1. In [Supabase Dashboard → Authentication → Users](https://supabase.com/dashboard), click **Add user → Create new user**
-2. Enter your admin email + password
-3. Navigate to [http://localhost:5173/login](http://localhost:5173/login) and sign in
-4. You'll be redirected to the **Admin Dashboard** at `/admin`
+1. Create an admin user in Supabase Dashboard → Authentication → Users
+2. Sign in at http://localhost:5173/login
+3. Manage reports at `/admin`
 
-### Admin Workflow
-
-```
-Open → In Progress → Resolved
-🔴           🟡           🟢
-```
-
-Click any report card on the Kanban board to expand it and use the **"Move to..."** button to advance its status. Changes reflect on the public map instantly.
+Admin JWT tokens are sent to FastAPI for protected status-update routes.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-civicpulse/
+public-eye/
+├── backend/                    # FastAPI (Python, Dockerized)
+│   ├── Dockerfile              # Python 3.12, dev + prod targets
+│   ├── app/
+│   │   ├── main.py             # App entry + CORS
+│   │   ├── auth.py             # JWT validation via Supabase
+│   │   ├── routers/
+│   │   │   ├── reports.py      # CRUD + status updates
+│   │   │   ├── classify.py     # OpenAI Vision
+│   │   │   └── geocode.py      # Nominatim proxy
+│   │   └── services/
+│   │       ├── ai_classifier.py
+│   │       └── storage.py      # Supabase Storage uploads
+│   └── requirements.txt
+├── frontend/                   # React (Vite)
+│   └── src/
+│       ├── services/
+│       │   ├── apiClient.js    # FastAPI HTTP client
+│       │   ├── reportsService.js
+│       │   ├── supabase.js     # Auth + Realtime only
+│       │   ├── aiClassifier.js
+│       │   └── geocodingService.js
+│       ├── pages/
+│       └── components/
 ├── supabase/
-│   └── schema.sql          # Full DB schema with PostGIS, RLS, triggers
-├── src/
-│   ├── services/
-│   │   ├── supabase.js     # Supabase client
-│   │   ├── reportsService.js   # CRUD + real-time subscriptions
-│   │   ├── geocodingService.js # Nominatim reverse geocoding
-│   │   └── aiClassifier.js     # AI image classification stub
-│   ├── components/
-│   │   ├── MapView.jsx         # Interactive Leaflet map
-│   │   ├── ReportSidebar.jsx   # Slide-out report submission form
-│   │   ├── ReportMarker.jsx    # Color-coded map markers
-│   │   ├── Navbar.jsx
-│   │   ├── StatusBadge.jsx
-│   │   └── ProtectedRoute.jsx
-│   ├── pages/
-│   │   ├── HomePage.jsx        # Map + sidebar layout
-│   │   ├── StatusBoard.jsx     # Public searchable list
-│   │   ├── AdminDashboard.jsx  # Kanban admin view
-│   │   └── LoginPage.jsx
-│   ├── App.jsx                 # Router + layout
-│   └── index.css               # Global styles + Tailwind
-└── .env.example
+│   └── schema.sql              # Database schema + RLS
+├── docker-compose.yml          # Dev backend (hot reload)
+├── docker-compose.prod.yml     # Production backend
+└── package.json                # Root scripts (dev both servers)
 ```
 
 ---
 
-## 🧠 AI Classification
+## 🔌 API Endpoints
 
-The `src/services/aiClassifier.js` module is a **drop-in stub** ready to be upgraded. To connect a real Vision API, replace the `classifyImage()` function body with an API call:
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/health` | — | Health check |
+| GET | `/api/reports` | — | List all reports |
+| POST | `/api/reports` | — | Submit report (multipart) |
+| PATCH | `/api/reports/{id}/status` | Admin JWT | Update status + audit trail |
+| GET | `/api/reports/{id}/history` | — | Status change history |
+| POST | `/api/classify-image` | — | AI category suggestion |
+| GET | `/api/geocode/reverse` | — | Reverse geocode lat/lng |
 
-```js
-// Example: OpenAI GPT-4o Vision
-const response = await openai.chat.completions.create({
-  model: 'gpt-4o',
-  messages: [{
-    role: 'user',
-    content: [
-      { type: 'text', text: 'Classify this infrastructure issue into: Pothole, Sanitation, Streetlight, Flooding, Vandalism, or Other.' },
-      { type: 'image_url', image_url: { url: base64DataUrl } }
-    ]
-  }]
-})
-```
-
----
-
-## 📜 Database Schema (Summary)
-
-```sql
-reports (
-  id UUID, created_at, updated_at,
-  title TEXT, description TEXT,
-  category TEXT,   -- Pothole | Sanitation | Streetlight | Flooding | Vandalism | Other
-  status TEXT,     -- Open | In Progress | Resolved
-  address TEXT, lat FLOAT, lng FLOAT,
-  location GEOGRAPHY(Point, 4326),  -- PostGIS spatial column
-  image_url TEXT, reported_by TEXT
-)
-```
-
----
-
-## 🤝 Contributing
-
-Pull requests welcome! Please open an issue first to discuss major changes.
+Interactive docs: http://localhost:8000/docs
 
 ---
 

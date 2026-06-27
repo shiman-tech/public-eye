@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Python
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+*.pyc
+.venv
+
 # Environment secrets
 .env
 .env.local
