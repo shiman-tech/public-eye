@@ -1,10 +1,10 @@
-# 🏙️ CivicPulse
+# 🏙️ PublicEye
 
-**CivicPulse** is an open-source civic tech web application that empowers citizens to report local infrastructure issues and track their resolution in real-time — all on an interactive map.
+**PublicEye** is an open-source civic tech web application that empowers citizens to report local infrastructure issues and track their resolution in real-time — all on an interactive map.
 
-Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL).
+Built on the **NERM / PERN stack**: **N**ode.js (**E**xpress) + **R**eact + **S**upabase (PostgreSQL).
 
-![Tech Stack](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white) ![Leaflet](https://img.shields.io/badge/Leaflet.js-OpenStreetMap-199900?logo=leaflet&logoColor=white)
+![Tech Stack](https://img.shields.io/badge/Node.js-Express-339933?logo=nodedotjs&logoColor=white) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white) ![Leaflet](https://img.shields.io/badge/Leaflet.js-OpenStreetMap-199900?logo=leaflet&logoColor=white)
 
 ---
 
@@ -12,8 +12,9 @@ Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL)
 
 ```
 ┌─────────────────┐     REST /api/*      ┌─────────────────┐
-│  React (Vite)   │ ◄──────────────────► │  FastAPI        │
-│  frontend/      │                      │  backend/       │
+│  React (Vite)   │ ◄──────────────────► │  Node.js        │
+│  frontend/      │                      │  Express        │
+│                 │                      │  backend/       │
 └────────┬────────┘                      └────────┬────────┘
          │                                        │
          │ Auth + Realtime                        │ Service role
@@ -32,7 +33,7 @@ Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL)
 | Layer | Role |
 |-------|------|
 | **React** | UI, map, forms, admin Kanban |
-| **FastAPI** | Reports CRUD, image upload, AI classification, geocoding proxy |
+| **Node.js / Express** | Reports CRUD, image upload, AI classification, geocoding proxy |
 | **Supabase** | PostgreSQL + PostGIS database, admin auth, realtime subscriptions, image storage |
 
 ---
@@ -40,7 +41,7 @@ Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL)
 ## ✨ Features
 
 - 🗺️ Interactive map with click-to-report
-- 🤖 AI image classification (OpenAI Vision via FastAPI)
+- 🤖 AI image classification (OpenAI Vision via Express backend)
 - 📋 Public status board with audit trail
 - 🔐 Admin Kanban dashboard
 - ⚡ Real-time updates via Supabase Realtime
@@ -53,7 +54,7 @@ Built on the **FARM stack**: **F**astAPI + **R**eact + **S**upabase (PostgreSQL)
 ### Prerequisites
 
 - Node.js 18+
-- [Docker](https://docs.docker.com/get-docker/) (runs the FastAPI backend — no local Python needed)
+- [Docker](https://docs.docker.com/get-docker/) (optional if running containers)
 - A [Supabase](https://supabase.com) project with PostGIS enabled
 
 ### 1. Clone & Install
@@ -64,7 +65,7 @@ cd public-eye
 npm run install:all
 ```
 
-This installs frontend dependencies only. The backend runs in Docker with a pinned Python 3.12 image and locked dependency versions.
+This installs both backend and frontend dependencies.
 
 ### 2. Environment Variables
 
@@ -83,6 +84,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 **backend/.env**
 ```env
+PORT=8000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 OPENAI_API_KEY=sk-...
@@ -107,25 +109,24 @@ Create a public storage bucket named **`report-images`** in Supabase Dashboard �
 npm run dev
 ```
 
-This starts both servers concurrently (backend in Docker with hot reload):
+This starts both servers concurrently:
 
 | Service | URL |
 |---------|-----|
 | React frontend | http://localhost:5173 |
-| FastAPI backend | http://localhost:8000 |
-| API docs | http://localhost:8000/docs |
+| Express backend | http://localhost:8000 |
 
 Run individually:
 
 ```bash
-npm run dev:backend   # Docker: FastAPI on :8000 (hot reload)
+npm run dev:backend   # Express on :8000 (hot reload with nodemon)
 npm run dev:frontend  # Vite on :5173
 ```
 
 ### Docker commands
 
 ```bash
-npm run dev:backend        # Dev: build + run with volume mount + reload
+npm run dev:backend:docker   # Dev: build + run with volume mount + reload
 npm run dev:backend:down     # Stop dev container
 npm run docker:build         # Rebuild backend image
 npm run docker:prod          # Production image (no reload, detached)
@@ -147,7 +148,7 @@ docker compose -f docker-compose.prod.yml up --build -d   # production
 2. Sign in at http://localhost:5173/login
 3. Manage reports at `/admin`
 
-Admin JWT tokens are sent to FastAPI for protected status-update routes. The backend dynamically instantiates a database client authenticated with the admin's JWT token (retrieved from the `Authorization` bearer header). This allows backend database operations to execute under the `authenticated` role, satisfying Row Level Security (RLS) policies defined in PostgreSQL (such as those requiring authenticated status for report updates and history entry creation).
+Admin JWT tokens are sent to Express for protected status-update routes. The backend verifies the token and dynamically instantiates a database client authenticated with the admin's JWT token (retrieved from the `Authorization` bearer header). This allows backend database operations to execute under the `authenticated` role, satisfying Row Level Security (RLS) policies defined in PostgreSQL (such as those requiring authenticated status for report updates and history entry creation).
 
 ---
 
@@ -155,23 +156,26 @@ Admin JWT tokens are sent to FastAPI for protected status-update routes. The bac
 
 ```
 public-eye/
-├── backend/                    # FastAPI (Python, Dockerized)
-│   ├── Dockerfile              # Python 3.12, dev + prod targets
-│   ├── app/
-│   │   ├── main.py             # App entry + CORS
-│   │   ├── auth.py             # JWT validation via Supabase
-│   │   ├── routers/
-│   │   │   ├── reports.py      # CRUD + status updates
-│   │   │   ├── classify.py     # OpenAI Vision
-│   │   │   └── geocode.py      # Nominatim proxy
+├── backend/                    # Node.js Express Backend
+│   ├── Dockerfile              # Node 20 alpine, dev + prod targets
+│   ├── package.json
+│   ├── src/
+│   │   ├── server.js           # Express app entry + CORS
+│   │   ├── config.js           # Env config
+│   │   ├── db.js               # Supabase JS clients
+│   │   ├── middleware/
+│   │   │   └── auth.js         # JWT validation via Supabase
+│   │   ├── routes/
+│   │   │   ├── reports.js      # CRUD + status updates
+│   │   │   ├── classify.js     # OpenAI Vision
+│   │   │   └── geocode.js      # Nominatim proxy
 │   │   └── services/
-│   │       ├── ai_classifier.py
-│   │       └── storage.py      # Supabase Storage uploads
-│   └── requirements.txt
+│   │       ├── aiClassifier.js
+│   │       └── storage.js      # Supabase Storage uploads
 ├── frontend/                   # React (Vite)
 │   └── src/
 │       ├── services/
-│       │   ├── apiClient.js    # FastAPI HTTP client
+│       │   ├── apiClient.js    # Backend HTTP client
 │       │   ├── reportsService.js
 │       │   ├── supabase.js     # Auth + Realtime only
 │       │   ├── aiClassifier.js

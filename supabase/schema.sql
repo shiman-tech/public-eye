@@ -1,5 +1,5 @@
 -- =============================================
--- CivicPulse Database Schema
+-- PublicEye Database Schema
 -- Run this in your Supabase SQL Editor
 -- =============================================
 
