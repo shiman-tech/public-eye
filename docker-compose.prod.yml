@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: production
-    container_name: civicpulse-backend
+    container_name: public-eye-backend
     ports:
       - "8000:8000"
     env_file:
