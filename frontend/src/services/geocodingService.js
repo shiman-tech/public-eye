@@ -4,7 +4,7 @@
 
 import { apiGet } from './apiClient'
 
-const CACHE_PREFIX = 'civicpulse_geo_'
+const CACHE_PREFIX = 'publiceye_geo_'
 const CACHE_TTL_MS = 30 * 60 * 1000
 
 function cacheKey(lat, lng) {

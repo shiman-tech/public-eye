@@ -3,7 +3,7 @@
  * Prevents spam submissions and excessive API calls.
  */
 
-const STORAGE_PREFIX = 'civicpulse_rl_'
+const STORAGE_PREFIX = 'publiceye_rl_'
 
 export function checkRateLimit(key, { maxAttempts = 5, windowMs = 60_000 } = {}) {
     const storageKey = STORAGE_PREFIX + key

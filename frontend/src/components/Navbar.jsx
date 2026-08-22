@@ -24,7 +24,7 @@ export default function Navbar() {
                             <MapPin className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <span className="text-white font-bold text-lg leading-none">CivicPulse</span>
+                            <span className="text-white font-bold text-lg leading-none">PublicEye</span>
                             <span className="block text-cyan-400 text-[10px] font-medium tracking-widest uppercase leading-none">
                                 Infrastructure Reports
                             </span>

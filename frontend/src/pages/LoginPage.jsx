@@ -37,7 +37,7 @@ export default function LoginPage() {
                         <MapPin className="w-7 h-7 text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-white">Admin Login</h1>
-                    <p className="text-slate-400 mt-1 text-sm">Sign in to access the CivicPulse dashboard</p>
+                    <p className="text-slate-400 mt-1 text-sm">Sign in to access the PublicEye dashboard</p>
                 </div>
 
                 {/* Card */}
