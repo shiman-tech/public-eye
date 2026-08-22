@@ -20,39 +20,18 @@ const MAX_ZOOM = 20
 
 const MAP_LAYERS = {
     streets: {
-        label: 'Streets',
-        description: 'Roads, buildings & parks',
+        label: 'Streets HD',
+        description: 'High-detail OpenStreetMap',
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: MAX_ZOOM,
-    },
-    detailed: {
-        label: 'Detailed',
-        description: 'Color-coded geography',
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        maxZoom: MAX_ZOOM,
+        maxZoom: 19,
     },
     satellite: {
-        label: 'Satellite',
-        description: 'Aerial imagery',
+        label: 'Satellite Imagery',
+        description: 'High-resolution aerial view',
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
         maxZoom: 19,
-    },
-    hybrid: {
-        label: 'Hybrid',
-        description: 'Satellite + labels',
-        base: {
-            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
-            maxZoom: 19,
-        },
-        overlay: {
-            url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-            maxZoom: MAX_ZOOM,
-        },
-        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://carto.com/">CARTO</a>',
     },
 }
 
@@ -218,19 +197,27 @@ export default function MapView({ draftPosition, onMapClick, onDraftPositionChan
     const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const [activeLayer, setActiveLayer] = useState('detailed')
+    const [activeLayer, setActiveLayer] = useState('streets')
     const mapRef = useRef(null)
 
+    // Request geolocation immediately on app open and center map
     useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude, longitude } = pos.coords
-                    setUserLocation([latitude, longitude])
-                    setMapCenter([latitude, longitude])
+                    const userCoords = [latitude, longitude]
+                    setUserLocation(userCoords)
+                    setMapCenter(userCoords)
+
+                    if (mapRef.current) {
+                        mapRef.current.flyTo(userCoords, REPORT_ZOOM, { duration: 1.2 })
+                    }
                 },
-                () => {},
-                { timeout: 8000, enableHighAccuracy: true }
+                (err) => {
+                    console.warn('Geolocation permission denied or error:', err)
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             )
         }
     }, [])
@@ -322,7 +309,7 @@ export default function MapView({ draftPosition, onMapClick, onDraftPositionChan
                 <div className="absolute inset-0 z-[400] flex items-center justify-center map-loading-overlay">
                     <div className="flex flex-col items-center gap-3">
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-                        <span className="text-slate-300 text-sm">Loading CivicPulse Map…</span>
+                        <span className="text-slate-300 text-sm">Loading PublicEye Map…</span>
                     </div>
                 </div>
             )}
